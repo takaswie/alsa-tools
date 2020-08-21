@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "subcmds.h"
+
 static void print_help()
 {
     printf("Usage\n"
@@ -11,6 +13,7 @@ static void print_help()
            "\n"
            "where:\n"
            "  SUBCOMMAND:\n"
+           "    device:     operate for device for unit on IEEE 1394 bus\n"
            "    help:       print help\n"
            "  OPTIONS:      optional arguments dependent on the subcommand\n");
 }
@@ -22,6 +25,7 @@ int main(int argc, char **argv)
     size_t size;
         int (*op)(int argc, char **argv);
     } *entry, entries[] = {
+        { "device", sizeof("device"), subcmd_device },
     };
     const char *subcmd;
     int i;

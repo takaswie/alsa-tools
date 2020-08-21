@@ -14,10 +14,12 @@ hinawa = dependency('hinawa',
 sources = [
   'main.c',
   'efw-proto.c',
+  'subcmd-device.c',
 ]
 
 headers = [
   'efw-proto.h',
+  'subcmds.h',
 ]
 
 gnome = import('gnome')
