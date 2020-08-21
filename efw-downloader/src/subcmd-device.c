@@ -88,6 +88,8 @@ int subcmd_device(int argc, char **argv)
         void (*op)(int argc, char **argv, EfwProto *proto, GError **error);
     } *entry, entries[] = {
         { "read", sizeof("read"), op_device_read },
+        { "detect", sizeof("detect"), op_device_detect },
+        { "update", sizeof("update"), op_device_update },
     };
     GError *error = NULL;
     gboolean debug;

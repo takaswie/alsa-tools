@@ -22,6 +22,8 @@ sources = [
   'file-cntr.c',
   'subcmd-device.c',
   'op-device-read.c',
+  'op-device-detect.c',
+  'op-device-update.c',
   'subcmd-file.c',
   'op-file-parse.c',
 ]
