@@ -3,6 +3,8 @@
 #include "efw-proto.h"
 #include "efw-proto-sigs-marshal.h"
 
+#include <sound/firewire.h>
+
 /**
  * SECTION:efw_proto
  * @Title: EfwProto
@@ -38,11 +40,15 @@ static void proto_finalize(GObject *obj)
     G_OBJECT_CLASS(efw_proto_parent_class)->finalize(obj);
 }
 
+static HinawaFwRcode proto_handle_response(HinawaFwResp *resp, HinawaFwTcode tcode);
+
 static void efw_proto_class_init(EfwProtoClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 
     gobject_class->finalize = proto_finalize;
+
+    HINAWA_FW_RESP_CLASS(klass)->requested = proto_handle_response;
 
     /**
      * EfwProto::responded:
@@ -125,4 +131,41 @@ void efw_proto_unbind(EfwProto *self)
     hinawa_fw_resp_release(HINAWA_FW_RESP(self));
 
     g_free(priv->buf);
+}
+
+static HinawaFwRcode proto_handle_response(HinawaFwResp *resp, HinawaFwTcode tcode)
+{
+    EfwProto *self = EFW_PROTO(resp);
+    EfwProtoPrivate *priv = efw_proto_get_instance_private(self);
+    const guint8 *req_frame = NULL;
+    gsize length = 0;
+    const struct snd_efw_transaction *frame;
+    guint status;
+    guint seqnum;
+    guint category;
+    guint command;
+    guint param_count;
+    int i;
+
+    hinawa_fw_resp_get_req_frame(resp, &req_frame, &length);
+    if (length < sizeof(*frame))
+        return HINAWA_FW_RCODE_DATA_ERROR;
+    frame = (const struct snd_efw_transaction *)req_frame;
+
+    status = GUINT32_FROM_BE(frame->status);
+    if (status > HINAWA_SND_EFW_STATUS_BAD_PARAMETER)
+        status = HINAWA_SND_EFW_STATUS_BAD;
+
+    seqnum = GUINT32_FROM_BE(frame->seqnum);
+    category = GUINT32_FROM_BE(frame->category);
+    command = GUINT32_FROM_BE(frame->command);
+    param_count = GUINT32_FROM_BE(frame->length) - sizeof(*frame) / sizeof(guint32);
+
+    for (i = 0; i < param_count; ++i)
+        priv->buf[i] = GUINT32_FROM_BE(frame->params[i]);
+
+    g_signal_emit(self, efw_proto_sigs[EFW_PROTO_SIG_TYPE_RESPONDED], 0,
+                  status, seqnum, category, command, priv->buf, param_count);
+
+    return HINAWA_FW_RCODE_COMPLETE;
 }
