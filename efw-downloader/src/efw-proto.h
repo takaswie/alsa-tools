@@ -7,6 +7,7 @@
 #include <glib-object.h>
 
 #include <libhinawa/fw_resp.h>
+#include <libhinawa/hinawa_enum_types.h>
 
 G_BEGIN_DECLS
 

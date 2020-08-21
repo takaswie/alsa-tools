@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2020 Takashi Sakamoto
 #include "efw-proto.h"
+#include "efw-proto-sigs-marshal.h"
 
 /**
  * SECTION:efw_proto
@@ -19,6 +20,12 @@ G_DEFINE_TYPE(EfwProto, efw_proto, HINAWA_TYPE_FW_RESP)
 #define EFW_RESP_ADDR           0xecc080000000ull
 #define EFW_MAX_FRAME_SIZE      0x200u
 
+enum efw_proto_sig_type {
+    EFW_PROTO_SIG_TYPE_RESPONDED = 1,
+    EFW_PROTO_SIG_COUNT,
+};
+static guint efw_proto_sigs[EFW_PROTO_SIG_COUNT] = { 0 };
+
 static void proto_finalize(GObject *obj)
 {
     EfwProto *self = EFW_PROTO(obj);
@@ -33,6 +40,31 @@ static void efw_proto_class_init(EfwProtoClass *klass)
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 
     gobject_class->finalize = proto_finalize;
+
+    /**
+     * EfwProto::responded:
+     * @self: A #EfwProto.
+     * @status: One of #HinawaSndEfwStatus.
+     * @seqnum: The sequence number of response.
+     * @category: The value of category field in the response.
+     * @command: The value of command field in the response.
+     * @frame: (array length=frame_size)(element-type guint32): The array with elements for
+     *         quadlet data of response for Echo Fireworks protocol.
+     * @frame_size: The number of elements of the array.
+     *
+     * When the unit transfers asynchronous packet as response for Fireworks protocol, and the
+     * process successfully reads the content of response from ALSA Fireworks driver, the
+     * #EfwProto::responded signal handler is called with parameters of the response.
+     */
+    efw_proto_sigs[EFW_PROTO_SIG_TYPE_RESPONDED] =
+        g_signal_new("responded",
+            G_OBJECT_CLASS_TYPE(klass),
+            G_SIGNAL_RUN_LAST,
+            0,
+            NULL, NULL,
+            efw_proto_sigs_marshal_VOID__ENUM_UINT_UINT_UINT_POINTER_UINT,
+            G_TYPE_NONE,
+            6, HINAWA_TYPE_SND_EFW_STATUS, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_POINTER, G_TYPE_UINT);
 }
 
 static void efw_proto_init(EfwProto *self)

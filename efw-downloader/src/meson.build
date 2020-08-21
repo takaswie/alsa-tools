@@ -20,6 +20,14 @@ headers = [
   'efw-proto.h',
 ]
 
+gnome = import('gnome')
+marshallers = gnome.genmarshal('efw-proto-sigs-marshal',
+  prefix: 'efw_proto_sigs_marshal',
+  sources: 'efw-proto-sigs-marshal.list',
+  stdinc: true,
+)
+sources += marshallers
+
 executable('efw-downloader',
   sources: sources + headers,
   dependencies: [
