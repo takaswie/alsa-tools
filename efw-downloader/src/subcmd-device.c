@@ -7,6 +7,10 @@
 
 #include "efw-proto.h"
 
+#define report_error(error, msg)                                                    \
+        fprintf(stderr, "Fail to %s: %s %d %s\n",                                   \
+                msg, g_quark_to_string(error->domain), error->code, error->message)
+
 static int print_help()
 {
     printf("Usage\n"
@@ -50,6 +54,7 @@ int subcmd_device(int argc, char **argv)
     GError *error = NULL;
     const char *path;
     const char *op_name;
+    HinawaFwNode *node;
     EfwProto *proto;
     int err;
     int i;
@@ -66,8 +71,22 @@ int subcmd_device(int argc, char **argv)
     if (i == G_N_ELEMENTS(entries))
         return print_help();
 
+    node = hinawa_fw_node_new();
+    hinawa_fw_node_open(node, path, &error);
+    if (error != NULL) {
+        if (g_error_matches(error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+            fprintf(stderr, "File not found: %s\n", path);
+        else if (g_error_matches(error, G_FILE_ERROR, G_FILE_ERROR_ACCES))
+            fprintf(stderr, "Permission denied: %s\n", path);
+        else
+            report_error(error, "open the node");
+        goto err;
+    }
+
     entry->op(argc, argv, proto, &error);
 
+    g_object_unref(node);
+err:
     if (error != NULL) {
         g_clear_error(&error);
         return EXIT_FAILURE;
