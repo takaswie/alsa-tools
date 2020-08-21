@@ -42,4 +42,16 @@ void efw_hw_info(EfwProto *proto, struct hw_info *info, GError **error);
 
 void efw_hw_info_has_fpga(struct hw_info *info, gboolean *has_fpga);
 
+void efw_flash_erase(EfwProto *proto, size_t offset, GError **error);
+void efw_flash_read(EfwProto *proto, size_t offset, guint32 *buf, size_t quads, GError **error);
+void efw_flash_write(EfwProto *proto, size_t offset, guint32 *buf, size_t quads, GError **error);
+void efw_flash_state(EfwProto *proto, gboolean *state, GError **error);
+void efw_flash_get_session_base(EfwProto *proto, size_t *offset, GError **error);
+void efw_flash_lock(EfwProto *proto, gboolean locked, GError **error);
+
+int efw_flash_get_block_size(size_t offset, size_t *block_size);
+void efw_flash_erase_and_wait(EfwProto *proto, size_t offset, GError **error);
+void efw_flash_recursive_read(EfwProto *proto, size_t offset, guint32 *buf, size_t quads, GError **error);
+void efw_flash_recursive_write(EfwProto *proto, size_t offset, guint32 *buf, size_t quads, GError **error);
+
 #endif
