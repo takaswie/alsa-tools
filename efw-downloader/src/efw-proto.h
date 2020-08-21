@@ -27,9 +27,12 @@ G_BEGIN_DECLS
 
 typedef struct _EfwProto            EfwProto;
 typedef struct _EfwProtoClass       EfwProtoClass;
+typedef struct _EfwProtoPrivate     EfwProtoPrivate;
 
 struct _EfwProto {
     HinawaFwResp parent_instance;
+
+    EfwProtoPrivate *priv;
 };
 
 struct _EfwProtoClass {

@@ -15,7 +15,10 @@
  * command to a certain address region on 1394 OHCI controller. The instance of #EfwProto reserves
  * the address region at call of #efw_proto_bind(), releases at call of #efw_proto_unbind().
  */
-G_DEFINE_TYPE(EfwProto, efw_proto, HINAWA_TYPE_FW_RESP)
+struct _EfwProtoPrivate {
+    guint32 *buf;
+};
+G_DEFINE_TYPE_WITH_PRIVATE(EfwProto, efw_proto, HINAWA_TYPE_FW_RESP)
 
 #define EFW_RESP_ADDR           0xecc080000000ull
 #define EFW_MAX_FRAME_SIZE      0x200u
@@ -94,9 +97,16 @@ EfwProto *efw_proto_new()
  */
 void efw_proto_bind(EfwProto *self, HinawaFwNode *node, GError **error)
 {
+    EfwProtoPrivate *priv;
+
     g_return_if_fail(EFW_IS_PROTO(self));
+    priv = efw_proto_get_instance_private(self);
 
     hinawa_fw_resp_reserve(HINAWA_FW_RESP(self), node, EFW_RESP_ADDR, EFW_MAX_FRAME_SIZE, error);
+    if (*error != NULL)
+        return;
+
+    priv->buf = g_malloc0(EFW_MAX_FRAME_SIZE);
 }
 
 /**
@@ -107,7 +117,12 @@ void efw_proto_bind(EfwProto *self, HinawaFwNode *node, GError **error)
  */
 void efw_proto_unbind(EfwProto *self)
 {
+    EfwProtoPrivate *priv;
+
     g_return_if_fail(EFW_IS_PROTO(self));
+    priv = efw_proto_get_instance_private(self);
 
     hinawa_fw_resp_release(HINAWA_FW_RESP(self));
+
+    g_free(priv->buf);
 }
