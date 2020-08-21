@@ -62,6 +62,10 @@ EfwProto *efw_proto_new();
 void efw_proto_bind(EfwProto *self, HinawaFwNode *node, GError **error);
 void efw_proto_unbind(EfwProto *self);
 
+void efw_proto_command(EfwProto *self, guint category, guint command,
+                       const guint32 *args, gsize arg_count, guint32 *resp_seqnum,
+                       GError **exception);
+
 G_END_DECLS
 
 #endif

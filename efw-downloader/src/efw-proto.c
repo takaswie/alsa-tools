@@ -5,6 +5,8 @@
 
 #include <sound/firewire.h>
 
+#include <libhinawa/fw_req.h>
+
 /**
  * SECTION:efw_proto
  * @Title: EfwProto
@@ -19,11 +21,16 @@
  */
 struct _EfwProtoPrivate {
     guint32 *buf;
+    guint32 seqnum;
+    HinawaFwNode *node;
+    GMutex mutex;
 };
 G_DEFINE_TYPE_WITH_PRIVATE(EfwProto, efw_proto, HINAWA_TYPE_FW_RESP)
 
+#define EFW_CMD_ADDR            0xecc000000000ull
 #define EFW_RESP_ADDR           0xecc080000000ull
 #define EFW_MAX_FRAME_SIZE      0x200u
+#define MINIMUM_VERSION         1
 
 enum efw_proto_sig_type {
     EFW_PROTO_SIG_TYPE_RESPONDED = 1,
@@ -34,8 +41,11 @@ static guint efw_proto_sigs[EFW_PROTO_SIG_COUNT] = { 0 };
 static void proto_finalize(GObject *obj)
 {
     EfwProto *self = EFW_PROTO(obj);
+    EfwProtoPrivate *priv = efw_proto_get_instance_private(self);
 
     efw_proto_unbind(self);
+
+    g_mutex_clear(&priv->mutex);
 
     G_OBJECT_CLASS(efw_proto_parent_class)->finalize(obj);
 }
@@ -78,7 +88,10 @@ static void efw_proto_class_init(EfwProtoClass *klass)
 
 static void efw_proto_init(EfwProto *self)
 {
-    return;
+    EfwProtoPrivate *priv = efw_proto_get_instance_private(self);
+
+    priv->seqnum = 0;
+    g_mutex_init(&priv->mutex);
 }
 
 /**
@@ -113,6 +126,7 @@ void efw_proto_bind(EfwProto *self, HinawaFwNode *node, GError **error)
         return;
 
     priv->buf = g_malloc0(EFW_MAX_FRAME_SIZE);
+    priv->node = node;
 }
 
 /**
@@ -131,6 +145,76 @@ void efw_proto_unbind(EfwProto *self)
     hinawa_fw_resp_release(HINAWA_FW_RESP(self));
 
     g_free(priv->buf);
+    priv->buf = NULL;
+    priv->node = NULL;
+}
+
+/**
+ * efw_proto_command:
+ * @self: A #EfwProto.
+ * @category: One of category for the transaction.
+ * @command: One of category for the transaction.
+ * @args: (array length=arg_count)(nullable): An array with elements for quadlet data as arguments
+ *        for command.
+ * @arg_count: The number of quadlets in the args array.
+ * @resp_seqnum: (out): The sequence number for response transaction.
+ * @error: A #GError. Error can be generated with two domains of #hinawa_fw_req_error_quark() and
+ *         #hinawa_fw_req_error_quark().
+ *
+ * Transfer asynchronous transaction for command frame of Fireworks protocol. When receiving
+ * asynchronous transaction for response frame, #EfwProto::responded GObject signal is emitted.
+ */
+void efw_proto_command(EfwProto *self, guint category, guint command,
+                       const guint32 *args, gsize arg_count, guint32 *resp_seqnum,
+                       GError **error)
+{
+    EfwProtoPrivate *priv;
+    HinawaFwReq *req;
+    gsize length;
+    struct snd_efw_transaction *frame;
+    int i;
+
+    g_return_if_fail(EFW_IS_PROTO(self));
+    g_return_if_fail(sizeof(*args) * arg_count + sizeof(*frame) < EFW_MAX_FRAME_SIZE);
+    g_return_if_fail(resp_seqnum != NULL);
+    g_return_if_fail(error == NULL || *error == NULL);
+
+    priv = efw_proto_get_instance_private(self);
+
+    length = sizeof(*frame);
+    if (args != NULL)
+        length += sizeof(guint32) * arg_count;
+
+    frame = g_malloc0(length);
+
+    // Fill request frame for transaction.
+    frame->length = GUINT32_TO_BE(length / sizeof(guint32));
+    frame->version = GUINT32_TO_BE(MINIMUM_VERSION);
+    frame->category = GUINT32_TO_BE(category);
+    frame->command = GUINT32_TO_BE(command);
+    if (args != NULL) {
+        for (i = 0; i < arg_count; ++i)
+            frame->params[i] = GUINT32_TO_BE(args[i]);
+    }
+
+    // Increment the sequence number for next transaction.
+    g_mutex_lock(&priv->mutex);
+    frame->seqnum = GUINT32_TO_BE(priv->seqnum);
+    *resp_seqnum = priv->seqnum + 1;
+    priv->seqnum += 2;
+    if (priv->seqnum > SND_EFW_TRANSACTION_USER_SEQNUM_MAX)
+        priv->seqnum = 0;
+    g_mutex_unlock(&priv->mutex);
+
+    // Send this request frame.
+    req = hinawa_fw_req_new();
+
+    hinawa_fw_req_transaction_sync(req, priv->node, HINAWA_FW_TCODE_WRITE_BLOCK_REQUEST,
+                                   EFW_CMD_ADDR, length, (guint8 *const *)&frame, &length, 100,
+                                   error);
+
+    g_object_unref(req);
+    g_free(frame);
 }
 
 static HinawaFwRcode proto_handle_response(HinawaFwResp *resp, HinawaFwTcode tcode)
