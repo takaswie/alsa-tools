@@ -3,6 +3,10 @@
 #ifndef __SUBCMDS_H__
 #define __SUBCMDS_H__
 
+#include "efw-proto.h"
+
 int subcmd_device(int argc, char **argv);
+
+void op_device_read(int argc, char **argv, EfwProto *proto, GError **error);
 
 #endif

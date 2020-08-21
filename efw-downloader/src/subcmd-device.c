@@ -9,6 +9,8 @@
 #include "config-rom.h"
 #include "node-dispatcher.h"
 
+#include "subcmds.h"
+
 #define report_error(error, msg)                                                    \
         fprintf(stderr, "Fail to %s: %s %d %s\n",                                   \
                 msg, g_quark_to_string(error->domain), error->code, error->message)
@@ -21,6 +23,7 @@ static int print_help()
            "where:\n"
            "  CDEV:   The firewire character device corresponding to the node for transaction\n"
            "  OPERATION:\n"
+           "    read:   read from on-board flash memory\n"
            "    help:   print this help message\n"
            "  ARGUMENTS:\n"
            "    depending on OPERATION\n"
@@ -84,6 +87,7 @@ int subcmd_device(int argc, char **argv)
         size_t size;
         void (*op)(int argc, char **argv, EfwProto *proto, GError **error);
     } *entry, entries[] = {
+        { "read", sizeof("read"), op_device_read },
     };
     GError *error = NULL;
     gboolean debug;

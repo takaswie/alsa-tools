@@ -18,6 +18,7 @@ sources = [
   'node-dispatcher.c',
   'efw-commands.c',
   'subcmd-device.c',
+  'op-device-read.c',
 ]
 
 headers = [
