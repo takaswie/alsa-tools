@@ -11,12 +11,15 @@ hinawa = dependency('hinawa',
   version: '>=2.1',
 )
 
+zlib = dependency('zlib')
+
 sources = [
   'main.c',
   'efw-proto.c',
   'config-rom.c',
   'node-dispatcher.c',
   'efw-commands.c',
+  'file-cntr.c',
   'subcmd-device.c',
   'op-device-read.c',
 ]
@@ -26,6 +29,7 @@ headers = [
   'config-rom.h',
   'node-dispatcher.h',
   'efw-commands.h',
+  'file-cntr.h',
   'subcmds.h',
 ]
 
@@ -42,6 +46,7 @@ executable('efw-downloader',
   dependencies: [
     gobject,
     hinawa,
+    zlib,
   ],
   install: true,
 )
