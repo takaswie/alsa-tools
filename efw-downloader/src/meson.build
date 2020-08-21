@@ -23,6 +23,7 @@ sources = [
   'subcmd-device.c',
   'op-device-read.c',
   'subcmd-file.c',
+  'op-file-parse.c',
 ]
 
 headers = [

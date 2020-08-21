@@ -16,6 +16,7 @@ static void print_help()
            "where:\n"
            "  FILEPATH: The path to file.\n"
            "  OPERATION:\n"
+           "    parse:  parse and dump binary blob released by Echo Audio\n"
            "    help:   print this help message\n"
            "  ARGUMENTS:\n"
            "    depending on the OPERATION\n");
@@ -45,6 +46,7 @@ int subcmd_file(int argc, char **argv)
         size_t size;
         int (*op)(int argc, char **argv, struct file_cntr *cntr);
     } *entry, entries[] = {
+        { "parse", sizeof("parse"), op_file_parse },
     };
     const char *op_name;
     const char *filepath;
