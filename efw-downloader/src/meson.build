@@ -16,6 +16,7 @@ sources = [
   'efw-proto.c',
   'config-rom.c',
   'node-dispatcher.c',
+  'efw-commands.c',
   'subcmd-device.c',
 ]
 
@@ -23,6 +24,7 @@ headers = [
   'efw-proto.h',
   'config-rom.h',
   'node-dispatcher.h',
+  'efw-commands.h',
   'subcmds.h',
 ]
 
