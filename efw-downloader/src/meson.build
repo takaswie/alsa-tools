@@ -15,12 +15,14 @@ sources = [
   'main.c',
   'efw-proto.c',
   'config-rom.c',
+  'node-dispatcher.c',
   'subcmd-device.c',
 ]
 
 headers = [
   'efw-proto.h',
   'config-rom.h',
+  'node-dispatcher.h',
   'subcmds.h',
 ]
 

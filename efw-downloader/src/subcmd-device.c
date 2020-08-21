@@ -7,6 +7,7 @@
 
 #include "efw-proto.h"
 #include "config-rom.h"
+#include "node-dispatcher.h"
 
 #define report_error(error, msg)                                                    \
         fprintf(stderr, "Fail to %s: %s %d %s\n",                                   \
@@ -60,6 +61,7 @@ int subcmd_device(int argc, char **argv)
     gsize length;
     guint32 vendor_id, model_id;
     EfwProto *proto;
+    struct node_dispatcher dispatcher = {0};
     int err;
     int i;
 
@@ -116,8 +118,16 @@ int subcmd_device(int argc, char **argv)
         goto err_node;
     }
 
+    node_dispatcher_start(&dispatcher, node, &error);
+    if (error != NULL) {
+        report_error(error, "begin dispatcher");
+        goto err_proto;
+    }
+
     entry->op(argc, argv, proto, &error);
 
+    node_dispatcher_stop(&dispatcher);
+err_proto:
     efw_proto_unbind(proto);
     g_object_unref(proto);
 err_node:
