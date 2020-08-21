@@ -6,6 +6,7 @@
 #include <assert.h>
 
 #include "efw-proto.h"
+#include "config-rom.h"
 
 #define report_error(error, msg)                                                    \
         fprintf(stderr, "Fail to %s: %s %d %s\n",                                   \
@@ -55,6 +56,9 @@ int subcmd_device(int argc, char **argv)
     const char *path;
     const char *op_name;
     HinawaFwNode *node;
+    const guint8 *rom;
+    gsize length;
+    guint32 vendor_id, model_id;
     EfwProto *proto;
     int err;
     int i;
@@ -83,8 +87,21 @@ int subcmd_device(int argc, char **argv)
         goto err;
     }
 
-    entry->op(argc, argv, proto, &error);
+    hinawa_fw_node_get_config_rom(node, &rom, &length, &error);
+    if (error != NULL) {
+        report_error(error, "get config rom");
+        goto err_node;
+    }
 
+    if (!config_rom_detect_vendor_and_model(rom, &vendor_id, &model_id)) {
+        fprintf(stderr, "The node is not for Fireworks device: %s\n", path);
+        g_set_error_literal(&error, G_FILE_ERROR, g_file_error_from_errno(ENXIO),
+                            "The node is not for Fireworks device");
+        goto err_node;
+    }
+
+    entry->op(argc, argv, proto, &error);
+err_node:
     g_object_unref(node);
 err:
     if (error != NULL) {
