@@ -14,11 +14,13 @@ hinawa = dependency('hinawa',
 sources = [
   'main.c',
   'efw-proto.c',
+  'config-rom.c',
   'subcmd-device.c',
 ]
 
 headers = [
   'efw-proto.h',
+  'config-rom.h',
   'subcmds.h',
 ]
 
