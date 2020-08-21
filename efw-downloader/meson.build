@@ -8,3 +8,7 @@ project('efw-downloader', 'c',
 )
 
 subdir('src')
+
+if get_option('man')
+  install_man('man/efw-downloader.1')
+endif

@@ -1,0 +1,162 @@
+.TH EFW\-DOWNLOADER 1 "20 Aug 2020" "alsa\-tools"
+
+.SH NAME
+efw\-downloader \- operate on-board flash memory for Fireworks board module
+
+.SH SYNOPSIS
+
+.B efw-downloader
+.I subcommand
+.I options ...
+
+subcommand =
+.B device
+|
+.B file
+
+options = ( depends on
+.I subcommand
+)
+
+.SH DESCRIPTION
+
+The
+.B efw-downloader
+is a command\-line tool to operate on-board flash memory for Fireworks board
+module by Fireworks protocol.
+
+.SH SUBCOMMAND
+
+.SS device
+Operate on-board flash memory by Fireworks protocol.
+
+.SS file
+Operate firmware files.
+
+.SH OPTIONS
+
+.SS For device subcommand
+
+.B efw-downloader device
+.I path
+.I operation
+.I arguments
+
+.TP
+.B path
+The path to special file for firewire character device corresponding to
+node of Fireworks board module.
+
+.TP
+.B operation
+One of
+.I read
+, and
+.I help
+operations.
+
+.TP
+.B arguments for read operation
+
+.B efw-downloader device
+.I path
+read
+.I offset
+.I size
+[
+.I --debug
+|
+.I --help
+|
+.I -h
+]
+
+The
+.I offset
+argument is the hexadecimal number of offset on flash memory.
+
+The
+.I size
+argument is
+the hexadecimal number of size to read, aligned to quadlet automatically.
+
+The optional
+.I --debug
+argument is to enable debug output for Fireworks protocol.
+
+The optional
+.I --help
+and
+.I -h
+arguments are for help message.
+
+.TP
+.B arguments for help operation
+
+.B efw-downloader device
+.I path
+help
+
+The help operation have no arguments.
+
+.SS For file subcommand
+
+.B efw-downloader file
+.I filepath
+.I operation
+.I arguments
+
+.TP
+.B filepath
+The path to file of firmware blob included in driver package shipped by vendors.
+
+.TP
+.B operation
+One of
+.I parse
+, and
+.I help
+operations.
+
+.TP
+.B arguments for parse operation
+
+.B efw-downloader file
+.I filepath
+.I parse
+[
+.I --help
+|
+.I -h
+]
+
+The
+.I --help
+and
+.I -h
+argument is for help message.
+
+.TP
+.B arguments for help operation
+
+.B efw-downloder file
+.I filepath
+.I help
+
+The help operation have no arguments.
+
+.SH EXIT_STATUS
+
+.I EXIT_SUCCESS
+(0) if run time successfully finished, else
+.I EXIT_FAILURE
+(1).
+
+.SH REPORTING BUGS
+Report any bugs to mailing list in ALSA community
+<alsa\-devel@alsa\-project.org> where the development and maintenance is
+primarily discussed. Bug tracking service of alsa\-tools repository on
+github.com is also available.
+
+.SH AUTHOR
+Takashi Sakamoto <o\-takashi@sakamocchi.jp>

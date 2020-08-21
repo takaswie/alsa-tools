@@ -1,0 +1,5 @@
+option('man',
+  type: 'boolean',
+  value: true,
+  description: 'install online manual',
+)
