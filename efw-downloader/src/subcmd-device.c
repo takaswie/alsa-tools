@@ -100,7 +100,26 @@ int subcmd_device(int argc, char **argv)
         goto err_node;
     }
 
+    proto = efw_proto_new();
+    efw_proto_bind(proto, node, &error);
+    if (error != NULL) {
+        if (g_error_matches(error, HINAWA_FW_NODE_ERROR, HINAWA_FW_NODE_ERROR_FAILED)) {
+            if (strstr(error->message, "16") != NULL) {
+                fprintf(stderr, "The range of address on 1394 OHCI controller already used by "
+                        "ALSA fireworks driver.\n");
+            } else {
+                report_error(error, "bind protocol");
+            }
+        } else {
+            report_error(error, "bind protocol");
+        }
+        goto err_node;
+    }
+
     entry->op(argc, argv, proto, &error);
+
+    efw_proto_unbind(proto);
+    g_object_unref(proto);
 err_node:
     g_object_unref(node);
 err:
