@@ -22,6 +22,7 @@ sources = [
   'file-cntr.c',
   'subcmd-device.c',
   'op-device-read.c',
+  'subcmd-file.c',
 ]
 
 headers = [
