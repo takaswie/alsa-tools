@@ -35,6 +35,11 @@ struct _EfwProtoClass {
     HinawaFwRespClass parent_class;
 };
 
+EfwProto *efw_proto_new();
+
+void efw_proto_bind(EfwProto *self, HinawaFwNode *node, GError **error);
+void efw_proto_unbind(EfwProto *self);
+
 G_END_DECLS
 
 #endif

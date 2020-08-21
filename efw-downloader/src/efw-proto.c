@@ -9,17 +9,73 @@
  * @include: fw_fcp.h
  *
  * Fireworks board module from Echo Digital Audio corporation supports specific protocol based on
- * a pair of asynchronous transactions in IEEE 1394 bus. The EfwProto class is an implementation
- * for the protocol.
+ * a pair of asynchronous transactions in IEEE 1394 bus for command and response. The #EfwProto class
+ * is an implementation for the protocol. The Fireworks device transfers response against the
+ * command to a certain address region on 1394 OHCI controller. The instance of #EfwProto reserves
+ * the address region at call of #efw_proto_bind(), releases at call of #efw_proto_unbind().
  */
 G_DEFINE_TYPE(EfwProto, efw_proto, HINAWA_TYPE_FW_RESP)
 
+#define EFW_RESP_ADDR           0xecc080000000ull
+#define EFW_MAX_FRAME_SIZE      0x200u
+
+static void proto_finalize(GObject *obj)
+{
+    EfwProto *self = EFW_PROTO(obj);
+
+    efw_proto_unbind(self);
+
+    G_OBJECT_CLASS(efw_proto_parent_class)->finalize(obj);
+}
+
 static void efw_proto_class_init(EfwProtoClass *klass)
 {
-    return;
+    GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
+
+    gobject_class->finalize = proto_finalize;
 }
 
 static void efw_proto_init(EfwProto *self)
 {
     return;
+}
+
+/**
+ * efw_proto_new:
+ *
+ * Instantiate and return #EfwProto object.
+ *
+ * Returns: An instance of #EfwProto.
+ */
+EfwProto *efw_proto_new()
+{
+    return g_object_new(EFW_TYPE_PROTO, NULL);
+}
+
+/**
+ * efw_proto_bind:
+ * @self: A #EfwProto.
+ * @node: A #HinawaFwNode.
+ * @error: A #GError. The error can be generated with domain of #hinawa_fw_node_error_quark().
+ *
+ * Bind to Fireworks protocol for communication to the given node.
+ */
+void efw_proto_bind(EfwProto *self, HinawaFwNode *node, GError **error)
+{
+    g_return_if_fail(EFW_IS_PROTO(self));
+
+    hinawa_fw_resp_reserve(HINAWA_FW_RESP(self), node, EFW_RESP_ADDR, EFW_MAX_FRAME_SIZE, error);
+}
+
+/**
+ * efw_proto_unbind:
+ * @self: A #EfwProto.
+ *
+ * Unbind from Fireworks protocol.
+ */
+void efw_proto_unbind(EfwProto *self)
+{
+    g_return_if_fail(EFW_IS_PROTO(self));
+
+    hinawa_fw_resp_release(HINAWA_FW_RESP(self));
 }
