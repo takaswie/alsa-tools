@@ -57,6 +57,10 @@ struct _EfwProtoClass {
                       guint category, guint command, const guint32 *frame, guint frame_size);
 };
 
+#define EFW_PROTO_ERROR     efw_proto_error_quark()
+
+GQuark efw_proto_error_quark();
+
 EfwProto *efw_proto_new();
 
 void efw_proto_bind(EfwProto *self, HinawaFwNode *node, GError **error);
@@ -65,6 +69,11 @@ void efw_proto_unbind(EfwProto *self);
 void efw_proto_command(EfwProto *self, guint category, guint command,
                        const guint32 *args, gsize arg_count, guint32 *resp_seqnum,
                        GError **exception);
+
+void efw_proto_transaction(EfwProto *self, guint category, guint command,
+                           const guint32 *args, gsize arg_count,
+                           guint32 *const *params, gsize *param_count,
+                           guint timeout_ms, GError **error);
 
 G_END_DECLS
 

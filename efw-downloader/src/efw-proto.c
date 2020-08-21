@@ -27,6 +27,15 @@ struct _EfwProtoPrivate {
 };
 G_DEFINE_TYPE_WITH_PRIVATE(EfwProto, efw_proto, HINAWA_TYPE_FW_RESP)
 
+/**
+ * efw_proto_error_quark:
+ *
+ * Return the GQuark for error domain of GError which has code in #HinawaSndEfwStatus.
+ *
+ * Returns: A #GQuark.
+ */
+G_DEFINE_QUARK(efw-proto-error-quark, efw_proto_error)
+
 #define EFW_CMD_ADDR            0xecc000000000ull
 #define EFW_RESP_ADDR           0xecc080000000ull
 #define EFW_MAX_FRAME_SIZE      0x200u
@@ -216,6 +225,143 @@ void efw_proto_command(EfwProto *self, guint category, guint command,
     g_object_unref(req);
     g_free(frame);
 }
+
+struct waiter {
+    guint32 seqnum;
+
+    guint32 category;
+    guint32 command;
+    HinawaSndEfwStatus status;
+    guint32 *params;
+    gsize param_count;
+
+    GCond cond;
+    GMutex mutex;
+};
+
+static void handle_responded_signal(EfwProto *self, HinawaSndEfwStatus status, guint32 seqnum,
+                    guint category, guint command,
+                    const guint32 *params, guint32 param_count, gpointer user_data)
+{
+    struct waiter *w = (struct waiter *)user_data;
+
+    if (seqnum == w->seqnum) {
+        g_mutex_lock(&w->mutex);
+
+        if (category != w->category || command != w->command)
+            status = HINAWA_SND_EFW_STATUS_BAD;
+        w->status = status;
+
+        if (param_count > 0 && param_count <= w->param_count)
+            memcpy(w->params, params, param_count * sizeof(*params));
+        w->param_count = param_count;
+
+        g_cond_signal(&w->cond);
+
+        g_mutex_unlock(&w->mutex);
+    }
+}
+
+static const char *const err_msgs[] = {
+    [HINAWA_SND_EFW_STATUS_OK]              = "The transaction finishes successfully",
+    [HINAWA_SND_EFW_STATUS_BAD]             = "The request or response includes invalid header",
+    [HINAWA_SND_EFW_STATUS_BAD_COMMAND]     = "The request includes invalid category or command",
+    [HINAWA_SND_EFW_STATUS_COMM_ERR]        = "The transaction fails due to communication error",
+    [HINAWA_SND_EFW_STATUS_BAD_QUAD_COUNT]  = "The number of quadlets in transaction is invalid",
+    [HINAWA_SND_EFW_STATUS_UNSUPPORTED]     = "The request is not supported",
+    [HINAWA_SND_EFW_STATUS_TIMEOUT]         = "The transaction is canceled due to response timeout",
+    [HINAWA_SND_EFW_STATUS_DSP_TIMEOUT]     = "The operation for DSP did not finish within timeout",
+    [HINAWA_SND_EFW_STATUS_BAD_RATE]        = "The request includes invalid value for sampling frequency",
+    [HINAWA_SND_EFW_STATUS_BAD_CLOCK]       = "The request includes invalid value for source of clock",
+    [HINAWA_SND_EFW_STATUS_BAD_CHANNEL]     = "The request includes invalid value for the number of channel",
+    [HINAWA_SND_EFW_STATUS_BAD_PAN]         = "The request includes invalid value for panning",
+    [HINAWA_SND_EFW_STATUS_FLASH_BUSY]      = "The on-board flash is busy and not operable",
+    [HINAWA_SND_EFW_STATUS_BAD_MIRROR]      = "The request includes invalid value for mirroring channel",
+    [HINAWA_SND_EFW_STATUS_BAD_LED]         = "The request includes invalid value for LED",
+    [HINAWA_SND_EFW_STATUS_BAD_PARAMETER]   = "The request includes invalid value of parameter",
+    [HINAWA_SND_EFW_STATUS_LARGE_RESP]      = "The size of response is larger than expected",
+};
+
+#define generate_error(error, code) \
+    g_set_error_literal(error, EFW_PROTO_ERROR, code, err_msgs[code])
+
+/**
+ * efw_proto_transaction:
+ * @self: A #EfwProto.
+ * @category: One of category for the transaction.
+ * @command: One of category for the transaction.
+ * @args: (array length=arg_count)(nullable): An array with elements for quadlet data as arguments
+ *        for command.
+ * @arg_count: The number of quadlets in the args array.
+ * @params: (array length=param_count)(inout)(nullable): An array with elements for quadlet data to
+ *          save parameters in response frame.
+ * @param_count: The number of quadlets in the params array.
+ * @timeout_ms: The timeout to wait for response of the transaction since request is initiated, in
+ *              milliseconds.
+ * @error: A #GError. Error can be generated with two domains of #hinawa_fw_node_error_quark(),
+ *         #hinawa_fw_req_error_quark(), and #efw_proto_error_quark().
+ *
+ * Transfer asynchronous transaction for command frame of Fireworks protocol. When receiving
+ * asynchronous transaction for response frame, #EfwProto::responded GObject signal is emitted.
+ */
+void efw_proto_transaction(EfwProto *self, guint category, guint command,
+                           const guint32 *args, gsize arg_count,
+                           guint32 *const *params, gsize *param_count,
+                           guint timeout_ms, GError **error)
+{
+    gulong handler_id;
+    struct waiter w;
+    guint64 expiration;
+
+    g_return_if_fail(EFW_IS_PROTO(self));
+    g_return_if_fail(param_count != NULL);
+    g_return_if_fail(error == NULL || *error == NULL);
+
+    // This predicates against suprious wakeup.
+    w.status = 0xffffffff;
+    w.category = category;
+    w.command = command;
+    if (*param_count > 0)
+        w.params = *params;
+    else
+        w.params = NULL;
+    w.param_count = *param_count;
+    g_cond_init(&w.cond);
+    g_mutex_init(&w.mutex);
+
+    handler_id = g_signal_connect(self, "responded", (GCallback)handle_responded_signal, &w);
+
+    // Timeout is set in advance as a parameter of this object.
+    expiration = g_get_monotonic_time() + timeout_ms * G_TIME_SPAN_MILLISECOND;
+
+    efw_proto_command(self, category, command, args, arg_count, &w.seqnum, error);
+    if (*error != NULL) {
+        g_signal_handler_disconnect(self, handler_id);
+        goto end;
+    }
+
+    g_mutex_lock(&w.mutex);
+    while (w.status == 0xffffffff) {
+        // Wait for a response with timeout, waken by the response handler.
+        if (!g_cond_wait_until(&w.cond, &w.mutex, expiration))
+            break;
+    }
+    g_signal_handler_disconnect(self, handler_id);
+    g_mutex_unlock(&w.mutex);
+
+    if (w.status == 0xffffffff)
+        generate_error(error, HINAWA_SND_EFW_STATUS_TIMEOUT);
+    else if (w.status != HINAWA_SND_EFW_STATUS_OK)
+        generate_error(error, w.status);
+    else if (w.param_count > *param_count)
+        generate_error(error, HINAWA_SND_EFW_STATUS_LARGE_RESP);
+    else
+        *param_count = w.param_count;
+end:
+    g_cond_clear(&w.cond);
+    g_mutex_clear(&w.mutex);
+}
+
 
 static HinawaFwRcode proto_handle_response(HinawaFwResp *resp, HinawaFwTcode tcode)
 {
